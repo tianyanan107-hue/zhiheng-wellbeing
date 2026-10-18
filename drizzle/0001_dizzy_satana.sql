@@ -1,0 +1,1 @@
+CREATE INDEX `idx_assessment_results_anonymous_scale_created` ON `assessment_results` (`anonymous_id`,`scale`,`created_at`);
