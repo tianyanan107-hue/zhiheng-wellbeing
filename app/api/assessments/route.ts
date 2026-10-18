@@ -2,6 +2,13 @@ import { and, asc, eq } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
 import { assessmentResults } from "../../../db/schema";
 import { scoreWho5 } from "../../../lib/who5";
+import { scorePhq9 } from "../../../lib/phq9";
+
+type Scale = "WHO-5" | "PHQ-9";
+
+function validScale(value: string): value is Scale {
+  return value === "WHO-5" || value === "PHQ-9";
+}
 
 function validAnonymousId(value: string) {
   return /^[a-zA-Z0-9_-]{12,80}$/.test(value);
@@ -9,15 +16,18 @@ function validAnonymousId(value: string) {
 
 export async function GET(request: Request) {
   try {
-    const anonymousId = new URL(request.url).searchParams.get("anonymousId") ?? "";
+    const url = new URL(request.url);
+    const anonymousId = url.searchParams.get("anonymousId") ?? "";
+    const scale = url.searchParams.get("scale") ?? "WHO-5";
     if (!validAnonymousId(anonymousId)) {
       return Response.json({ error: "匿名标识无效。" }, { status: 400 });
     }
+    if (!validScale(scale)) return Response.json({ error: "量表类型无效。" }, { status: 400 });
     await ensureDatabase();
     const history = await getDb()
-      .select({ id: assessmentResults.id, normalizedScore: assessmentResults.normalizedScore, createdAt: assessmentResults.createdAt })
+      .select({ id: assessmentResults.id, rawScore: assessmentResults.rawScore, normalizedScore: assessmentResults.normalizedScore, createdAt: assessmentResults.createdAt })
       .from(assessmentResults)
-      .where(and(eq(assessmentResults.anonymousId, anonymousId), eq(assessmentResults.scale, "WHO-5")))
+      .where(and(eq(assessmentResults.anonymousId, anonymousId), eq(assessmentResults.scale, scale)))
       .orderBy(asc(assessmentResults.createdAt), asc(assessmentResults.id))
       .limit(12);
     return Response.json({ history });
@@ -29,16 +39,18 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const payload = (await request.json()) as { anonymousId?: string; answers?: number[] };
+    const payload = (await request.json()) as { anonymousId?: string; scale?: string; answers?: number[] };
     const anonymousId = payload.anonymousId?.trim() ?? "";
     if (!validAnonymousId(anonymousId)) {
       return Response.json({ error: "匿名标识无效。" }, { status: 400 });
     }
-    const result = scoreWho5(payload.answers ?? []);
+    const scale = payload.scale ?? "WHO-5";
+    if (!validScale(scale)) return Response.json({ error: "量表类型无效。" }, { status: 400 });
+    const result = scale === "PHQ-9" ? scorePhq9(payload.answers ?? []) : scoreWho5(payload.answers ?? []);
     await ensureDatabase();
     const [saved] = await getDb().insert(assessmentResults).values({
       anonymousId,
-      scale: "WHO-5",
+      scale,
       rawScore: result.rawScore,
       normalizedScore: result.normalizedScore,
       answersJson: JSON.stringify(payload.answers),
