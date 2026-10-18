@@ -19,7 +19,8 @@ test("server-renders the Zhiheng product page", async () => {
   const html = await response.text();
   assert.match(html, /知衡/);
   assert.match(html, /认知与心理健康随访/);
-  assert.match(html, /开始本次评估/);
+  assert.match(html, /测幸福感 WHO-5/);
+  assert.match(html, /测抑郁症状 PHQ-9/);
   assert.match(html, /不提供疾病诊断/);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview|Starter Project/);
 });

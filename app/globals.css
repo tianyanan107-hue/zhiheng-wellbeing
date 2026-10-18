@@ -86,6 +86,7 @@ h1 { margin: 0; max-width: 740px; font-size: clamp(42px, 6vw, 76px); line-height
 .result-copy h3 { margin: 0 0 12px; font-size: 30px; letter-spacing: -.035em; }
 .result-copy p { color: var(--muted); line-height: 1.75; }
 .notice { padding: 16px 18px; border-left: 4px solid var(--sun); background: #fff8e9; border-radius: 4px 14px 14px 4px; color: #6b5739; line-height: 1.6; }
+.notice.urgent { border-left-color: var(--danger); background: #fff0ef; color: #722c2c; }
 .history { margin-top: 24px; }
 .history h3 { margin: 0 0 8px; }
 .history-sub { color: var(--muted); margin: 0 0 20px; }

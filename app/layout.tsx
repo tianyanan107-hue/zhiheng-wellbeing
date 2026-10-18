@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase,
     title: "知衡｜认知与心理健康随访",
-    description: "通过规范量表与长期趋势，温和地了解自己的心理健康状态。",
+    description: "通过 WHO-5 与 PHQ-9 规范量表及长期趋势，温和地了解自己的心理健康状态。",
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: { title: "知衡", description: "多一点了解，少一点猜测。" },
     twitter: { card: "summary" },
