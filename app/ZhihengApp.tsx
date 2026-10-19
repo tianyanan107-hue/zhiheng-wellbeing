@@ -31,11 +31,22 @@ const phq9Options = [
   { score: 2, label: "一半以上天数" }, { score: 3, label: "几乎每天" },
 ];
 
-type Scale = "WHO-5" | "PHQ-9";
+const gad7Questions = [
+  "感到紧张、焦虑或急切",
+  "不能停止或控制担忧",
+  "对各种各样的事情担忧过多",
+  "很难放松下来",
+  "由于不安而无法静坐",
+  "变得容易烦恼或急躁",
+  "感到似乎将有可怕的事情发生而害怕",
+];
+
+type Scale = "WHO-5" | "PHQ-9" | "GAD-7";
 
 type HistoryItem = { id: number; rawScore: number; normalizedScore: number; createdAt: string };
 type Result = { rawScore: number; normalizedScore: number; band: string; selfHarmRisk?: boolean };
 type Stage = "intro" | "consent" | "questionnaire" | "result";
+type Checkin = { id: number; mood: number; sleepHours: number; sleepQuality: number; stress: number; energy: number; exercised: boolean; note: string; createdAt: string };
 
 function getAnonymousId() {
   const key = "zhiheng-anonymous-id";
@@ -56,9 +67,12 @@ export function ZhihengApp() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [checkins, setCheckins] = useState<Checkin[]>([]);
+  const [checkin, setCheckin] = useState({ mood: 3, sleepHours: 7, sleepQuality: 3, stress: 3, energy: 3, exercised: false, note: "" });
+  const [checkinMessage, setCheckinMessage] = useState("");
 
-  const questions = scale === "PHQ-9" ? phq9Questions : who5Questions;
-  const options = scale === "PHQ-9" ? phq9Options : who5Options;
+  const questions = scale === "PHQ-9" ? phq9Questions : scale === "GAD-7" ? gad7Questions : who5Questions;
+  const options = scale === "WHO-5" ? who5Options : phq9Options;
 
   async function loadHistory(activeScale: Scale = scale) {
     const response = await fetch(`/api/assessments?anonymousId=${encodeURIComponent(getAnonymousId())}&scale=${activeScale}`);
@@ -67,10 +81,16 @@ export function ZhihengApp() {
     setHistory(data.history);
   }
 
+  async function loadCheckins() {
+    const response = await fetch(`/api/checkins?anonymousId=${encodeURIComponent(getAnonymousId())}`);
+    if (response.ok) setCheckins(((await response.json()) as { checkins: Checkin[] }).checkins);
+  }
+
   useEffect(() => { loadHistory(scale).catch(() => undefined); }, [scale]);
+  useEffect(() => { loadCheckins().catch(() => undefined); }, []);
   const latestDisplay = useMemo(() => {
     const latest = history.at(-1);
-    return latest ? (scale === "PHQ-9" ? latest.rawScore : latest.normalizedScore) : "—";
+    return latest ? (scale === "WHO-5" ? latest.normalizedScore : latest.rawScore) : "—";
   }, [history, scale]);
   const currentAnswer = answers[questionIndex];
 
@@ -81,9 +101,17 @@ export function ZhihengApp() {
 
   function selectScale(nextScale: Scale) {
     setScale(nextScale);
-    setAnswers(Array(nextScale === "PHQ-9" ? 9 : 5).fill(null));
+    setAnswers(Array(nextScale === "PHQ-9" ? 9 : nextScale === "GAD-7" ? 7 : 5).fill(null));
     setQuestionIndex(0); setResult(null); setError(""); setConsented(false);
     goToAssessment("consent");
+  }
+
+  async function saveCheckin() {
+    setCheckinMessage("正在保存…");
+    const response = await fetch("/api/checkins", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ anonymousId: getAnonymousId(), ...checkin }) });
+    const data = await response.json() as { error?: string };
+    if (!response.ok) return setCheckinMessage(data.error ?? "保存失败，请稍后再试。");
+    setCheckinMessage("今天的状态已匿名保存。"); setCheckin((current) => ({ ...current, note: "" })); await loadCheckins();
   }
 
   function chooseAnswer(score: number) {
@@ -126,12 +154,13 @@ export function ZhihengApp() {
           <div className="hero-actions">
             <button className="primary" onClick={() => selectScale("WHO-5")}>测幸福感 WHO-5</button>
             <button className="secondary" onClick={() => selectScale("PHQ-9")}>测抑郁症状 PHQ-9</button>
+            <button className="secondary" onClick={() => selectScale("GAD-7")}>测焦虑症状 GAD-7</button>
             <button className="secondary" onClick={() => document.getElementById("history")?.scrollIntoView({ behavior: "smooth" })}>查看我的趋势</button>
           </div>
         </div>
         <aside className="hero-card" aria-label="最近一次评估概览">
           <div className="status-label">最近一次 {scale} 得分</div>
-          <div className="status-score">{latestDisplay}<span className="status-unit"> / {scale === "PHQ-9" ? 27 : 100}</span></div>
+          <div className="status-score">{latestDisplay}<span className="status-unit"> / {scale === "PHQ-9" ? 27 : scale === "GAD-7" ? 21 : 100}</span></div>
           <p className="status-message">规律记录比单次分数更重要。完成多次评估后，你可以在这里看到属于自己的变化。</p>
           <div className="mini-bars" aria-hidden="true">{[42,53,48,65,59,72].map((height, index) => <span key={index} style={{ height: `${height}%` }} />)}</div>
         </aside>
@@ -148,7 +177,7 @@ export function ZhihengApp() {
           <div className="panel-header"><div><h2>开始前，请先了解</h2><p>你的自主选择和安全，比完成一次评估更重要。</p></div><span className="step-badge">知情说明</span></div>
           <div className="panel-body">
             <div className="consent-grid">
-              <div className="consent-card"><strong>这项评估能做什么</strong><p>{scale === "PHQ-9" ? "PHQ-9用于筛查过去两周的抑郁相关症状，帮助识别是否值得进一步咨询。" : "WHO-5用于了解过去两周的主观心理幸福感，帮助你观察个人变化。"}</p></div>
+              <div className="consent-card"><strong>这项评估能做什么</strong><p>{scale === "PHQ-9" ? "PHQ-9用于筛查过去两周的抑郁相关症状，帮助识别是否值得进一步咨询。" : scale === "GAD-7" ? "GAD-7用于筛查过去两周的焦虑相关症状，帮助你观察症状频率和变化。" : "WHO-5用于了解过去两周的主观心理幸福感，帮助你观察个人变化。"}</p></div>
               <div className="consent-card"><strong>它不能做什么</strong><p>结果不能诊断抑郁症或其他疾病，也不能替代医生、心理咨询师的判断。</p></div>
             </div>
             <label className="consent-check"><input type="checkbox" checked={consented} onChange={(event) => setConsented(event.target.checked)} /><span>我已阅读并理解以上说明，自愿进行本次匿名自我评估。</span></label>
@@ -157,7 +186,7 @@ export function ZhihengApp() {
         </>}
 
         {stage === "questionnaire" && <>
-          <div className="panel-header"><div><h2>{scale === "PHQ-9" ? "PHQ-9 抑郁症状筛查" : "WHO-5 心理幸福感评估"}</h2><p>请根据过去两周的真实感受作答。</p></div><span className="step-badge">约 {scale === "PHQ-9" ? 3 : 2} 分钟</span></div>
+          <div className="panel-header"><div><h2>{scale === "PHQ-9" ? "PHQ-9 抑郁症状筛查" : scale === "GAD-7" ? "GAD-7 焦虑症状筛查" : "WHO-5 心理幸福感评估"}</h2><p>请根据过去两周的真实感受作答。</p></div><span className="step-badge">约 {scale === "WHO-5" ? 2 : 3} 分钟</span></div>
           <div className="panel-body">
             <div className="progress-track"><div className="progress-fill" style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }} /></div>
             <div className="question-number">问题 {questionIndex + 1} / {questions.length}</div>
@@ -178,10 +207,10 @@ export function ZhihengApp() {
         {stage === "result" && result && <>
           <div className="panel-header"><div><h2>本次评估结果</h2><p>这是一次状态记录，不是一份诊断结论。</p></div><span className="step-badge">已匿名保存</span></div>
           <div className="panel-body"><div className="result-layout">
-            <div className="score-ring" style={{ "--score-angle": `${result.normalizedScore * 3.6}deg` } as React.CSSProperties}><div className="score-value">{scale === "PHQ-9" ? result.rawScore : result.normalizedScore}<small>{scale === "PHQ-9" ? "满分 27" : "满分 100"}</small></div></div>
+            <div className="score-ring" style={{ "--score-angle": `${result.normalizedScore * 3.6}deg` } as React.CSSProperties}><div className="score-value">{scale === "WHO-5" ? result.normalizedScore : result.rawScore}<small>{scale === "PHQ-9" ? "满分 27" : scale === "GAD-7" ? "满分 21" : "满分 100"}</small></div></div>
             <div className="result-copy">
-              <h3>{scale === "PHQ-9" ? ({ minimal: "目前症状很少", mild: "存在轻度症状", moderate: "建议进一步关注", moderately_severe: "建议尽快咨询专业人员", severe: "建议尽快寻求专业帮助" }[result.band] ?? "关注自己的状态") : result.band === "positive" ? "继续关注自己的状态" : "值得给自己多一些关注"}</h3>
-              <p>{scale === "PHQ-9" ? "PHQ-9是筛查工具，分数反映过去两周症状出现的频率，不能单独用于诊断。如果症状持续、加重或影响生活，请向合格的专业人员咨询。" : result.band === "positive" ? "本次结果未落入WHO-5建议进一步评估的范围。单次结果会受到近期事件影响，持续记录更有参考价值。" : "本次得分低于WHO-5建议进一步评估的参考范围。这不代表你患有某种疾病；如果这种状态持续、影响生活，建议向合格的专业人员进一步咨询。"}</p>
+              <h3>{scale !== "WHO-5" ? ({ minimal: "目前症状很少", mild: "存在轻度症状", moderate: "建议进一步关注", moderately_severe: "建议尽快咨询专业人员", severe: "建议尽快寻求专业帮助" }[result.band] ?? "关注自己的状态") : result.band === "positive" ? "继续关注自己的状态" : "值得给自己多一些关注"}</h3>
+              <p>{scale !== "WHO-5" ? `${scale}是筛查工具，分数反映过去两周症状出现的频率，不能单独用于诊断。如果症状持续、加重或影响生活，请向合格的专业人员咨询。` : result.band === "positive" ? "本次结果未落入WHO-5建议进一步评估的范围。单次结果会受到近期事件影响，持续记录更有参考价值。" : "本次得分低于WHO-5建议进一步评估的参考范围。这不代表你患有某种疾病；如果这种状态持续、影响生活，建议向合格的专业人员进一步咨询。"}</p>
               {result.selfHarmRisk && <div className="notice urgent"><strong>请优先关注你的安全。</strong><br />你对“伤害自己”的问题选择了非零答案。请现在联系可信任的人陪伴你，并尽快联系当地紧急服务或专业心理援助；不要独自承受。本网站不提供紧急干预。</div>}
               {!result.selfHarmRisk && <div className="notice">如果你正处于危险中，或有伤害自己、他人的想法，请立即联系当地紧急服务、可信任的人或专业机构。本网站不提供紧急干预。</div>}
               <div className="hero-actions" style={{ marginTop: 20 }}><button className="primary" onClick={resetAssessment}>再次评估</button><button className="secondary" onClick={() => document.getElementById("history")?.scrollIntoView({ behavior: "smooth" })}>查看趋势</button></div>
@@ -191,10 +220,24 @@ export function ZhihengApp() {
       </section>}
 
       <section className="panel history" id="history">
-        <div className="panel-header"><div><h2>我的{scale === "PHQ-9" ? "症状" : "幸福感"}趋势</h2><p>仅保存在匿名标识下，展示最近 12 次结果。点击上方量表按钮可切换。</p></div><span className="step-badge">{scale}</span></div>
+        <div className="panel-header"><div><h2>我的{scale === "WHO-5" ? "幸福感" : "症状"}趋势</h2><p>仅保存在匿名标识下，展示最近 12 次结果。点击上方量表按钮可切换。</p></div><span className="step-badge">{scale}</span></div>
         <div className="panel-body">{history.length === 0
           ? <div className="empty-history">完成第一次评估后，这里会出现你的个人趋势。</div>
-          : <div className="history-chart" aria-label="历史得分柱状图">{history.map((item) => <div className="history-column" key={item.id} title={`${item.createdAt}：${scale === "PHQ-9" ? item.rawScore : item.normalizedScore}分`}><div className="history-bar" style={{ height: `${Math.max(item.normalizedScore, 6)}%` }}><span>{scale === "PHQ-9" ? item.rawScore : item.normalizedScore}</span></div>{new Date(item.createdAt.replace(" ", "T") + "Z").toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })}</div>)}</div>}
+          : <div className="history-chart" aria-label="历史得分柱状图">{history.map((item) => <div className="history-column" key={item.id} title={`${item.createdAt}：${scale === "WHO-5" ? item.normalizedScore : item.rawScore}分`}><div className="history-bar" style={{ height: `${Math.max(item.normalizedScore, 6)}%` }}><span>{scale === "WHO-5" ? item.normalizedScore : item.rawScore}</span></div>{new Date(item.createdAt.replace(" ", "T") + "Z").toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })}</div>)}</div>}
+        </div>
+      </section>
+
+      <section className="panel checkin-panel" id="checkin">
+        <div className="panel-header"><div><h2>每日状态打卡</h2><p>用一分钟记录今天，帮助你看见睡眠、压力与情绪的关系。</p></div><span className="step-badge">最近 {checkins.length} 次</span></div>
+        <div className="panel-body">
+          <div className="checkin-grid">
+            {([['mood','情绪'],['sleepQuality','睡眠质量'],['stress','压力'],['energy','精力']] as const).map(([key,label]) => <label className="checkin-field" key={key}><span>{label}<strong>{checkin[key]} / 5</strong></span><input type="range" min="1" max="5" value={checkin[key]} onChange={(event) => setCheckin((current) => ({ ...current, [key]: Number(event.target.value) }))} /></label>)}
+            <label className="checkin-field"><span>睡眠时长<strong>{checkin.sleepHours} 小时</strong></span><input type="range" min="0" max="16" value={checkin.sleepHours} onChange={(event) => setCheckin((current) => ({ ...current, sleepHours: Number(event.target.value) }))} /></label>
+            <label className="exercise-check"><input type="checkbox" checked={checkin.exercised} onChange={(event) => setCheckin((current) => ({ ...current, exercised: event.target.checked }))} />今天运动过</label>
+          </div>
+          <label className="note-field">简短备注（可选）<textarea maxLength={200} value={checkin.note} onChange={(event) => setCheckin((current) => ({ ...current, note: event.target.value }))} placeholder="例如：今天有考试，午后散步了 30 分钟" /></label>
+          <div className="checkin-actions"><span role="status">{checkinMessage}</span><button className="primary" onClick={() => saveCheckin().catch(() => setCheckinMessage("保存失败，请稍后再试。"))}>保存今日状态</button></div>
+          {checkins.length > 0 && <div className="checkin-summary"><strong>最近一次：</strong>情绪 {checkins.at(-1)?.mood}/5 · 睡眠 {checkins.at(-1)?.sleepHours} 小时 · 压力 {checkins.at(-1)?.stress}/5 · 精力 {checkins.at(-1)?.energy}/5</div>}
         </div>
       </section>
     </main>

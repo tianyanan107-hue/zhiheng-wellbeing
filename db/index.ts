@@ -30,5 +30,23 @@ export async function ensureDatabase() {
       CREATE INDEX IF NOT EXISTS idx_assessment_results_anonymous_scale_created
       ON assessment_results(anonymous_id, scale, created_at)
     `),
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS daily_checkins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        anonymous_id TEXT NOT NULL,
+        mood INTEGER NOT NULL,
+        sleep_hours INTEGER NOT NULL,
+        sleep_quality INTEGER NOT NULL,
+        stress INTEGER NOT NULL,
+        energy INTEGER NOT NULL,
+        exercised INTEGER NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `),
+    env.DB.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_daily_checkins_anonymous_created
+      ON daily_checkins(anonymous_id, created_at)
+    `),
   ]);
 }

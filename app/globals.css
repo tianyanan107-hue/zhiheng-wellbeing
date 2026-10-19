@@ -88,6 +88,18 @@ h1 { margin: 0; max-width: 740px; font-size: clamp(42px, 6vw, 76px); line-height
 .notice { padding: 16px 18px; border-left: 4px solid var(--sun); background: #fff8e9; border-radius: 4px 14px 14px 4px; color: #6b5739; line-height: 1.6; }
 .notice.urgent { border-left-color: var(--danger); background: #fff0ef; color: #722c2c; }
 .history { margin-top: 24px; }
+.checkin-panel { margin-top: 24px; }
+.checkin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.checkin-field { padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-soft); }
+.checkin-field span { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; color: var(--muted); }
+.checkin-field strong { color: var(--ink); }
+.checkin-field input { width: 100%; accent-color: var(--green); }
+.exercise-check { display: flex; align-items: center; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; }
+.exercise-check input { width: 19px; height: 19px; accent-color: var(--green); }
+.note-field { display: grid; gap: 8px; margin-top: 16px; color: var(--muted); }
+.note-field textarea { min-height: 88px; resize: vertical; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: white; color: var(--ink); font: inherit; }
+.checkin-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 16px; color: var(--green); }
+.checkin-summary { margin-top: 18px; padding: 16px; border-radius: 14px; background: var(--surface-soft); color: var(--muted); }
 .history h3 { margin: 0 0 8px; }
 .history-sub { color: var(--muted); margin: 0 0 20px; }
 .history-chart { height: 180px; display: flex; gap: 12px; align-items: end; padding: 18px 18px 10px; border-radius: 18px; background: var(--surface-soft); }
@@ -102,6 +114,7 @@ h1 { margin: 0; max-width: 740px; font-size: clamp(42px, 6vw, 76px); line-height
   .hero { grid-template-columns: 1fr; }
   .hero-card { min-height: 340px; }
   .trust-row, .consent-grid, .result-layout { grid-template-columns: 1fr; }
+  .checkin-grid { grid-template-columns: 1fr; }
   .options { grid-template-columns: 1fr 1fr; }
   .panel-header { align-items: flex-start; }
 }

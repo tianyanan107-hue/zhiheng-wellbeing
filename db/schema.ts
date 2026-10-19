@@ -20,3 +20,20 @@ export const assessmentResults = sqliteTable(
     ),
   ],
 );
+
+export const dailyCheckins = sqliteTable(
+  "daily_checkins",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    anonymousId: text("anonymous_id").notNull(),
+    mood: integer("mood").notNull(),
+    sleepHours: integer("sleep_hours").notNull(),
+    sleepQuality: integer("sleep_quality").notNull(),
+    stress: integer("stress").notNull(),
+    energy: integer("energy").notNull(),
+    exercised: integer("exercised", { mode: "boolean" }).notNull(),
+    note: text("note").notNull().default(""),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("idx_daily_checkins_anonymous_created").on(table.anonymousId, table.createdAt)],
+);

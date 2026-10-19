@@ -3,11 +3,12 @@ import { ensureDatabase, getDb } from "../../../db";
 import { assessmentResults } from "../../../db/schema";
 import { scoreWho5 } from "../../../lib/who5";
 import { scorePhq9 } from "../../../lib/phq9";
+import { scoreGad7 } from "../../../lib/gad7";
 
-type Scale = "WHO-5" | "PHQ-9";
+type Scale = "WHO-5" | "PHQ-9" | "GAD-7";
 
 function validScale(value: string): value is Scale {
-  return value === "WHO-5" || value === "PHQ-9";
+  return value === "WHO-5" || value === "PHQ-9" || value === "GAD-7";
 }
 
 function validAnonymousId(value: string) {
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     }
     const scale = payload.scale ?? "WHO-5";
     if (!validScale(scale)) return Response.json({ error: "量表类型无效。" }, { status: 400 });
-    const result = scale === "PHQ-9" ? scorePhq9(payload.answers ?? []) : scoreWho5(payload.answers ?? []);
+    const result = scale === "PHQ-9" ? scorePhq9(payload.answers ?? []) : scale === "GAD-7" ? scoreGad7(payload.answers ?? []) : scoreWho5(payload.answers ?? []);
     await ensureDatabase();
     const [saved] = await getDb().insert(assessmentResults).values({
       anonymousId,
