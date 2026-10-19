@@ -23,6 +23,7 @@
 }
 
 * { box-sizing: border-box; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-geist-sans), "Microsoft YaHei", sans-serif; }
 button, input { font: inherit; }
@@ -130,6 +131,25 @@ h1 { margin: 0; max-width: 740px; font-size: clamp(42px, 6vw, 76px); line-height
 .report-support small { line-height: 1.55; }
 .report-footer { margin-top: 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .report-footer p { margin: 0; color: var(--muted); }
+.assistant-chat { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line); }
+.chat-heading, .chat-heading > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.chat-heading > div { justify-content: flex-start; }
+.chat-heading strong, .chat-heading small { display: block; }
+.chat-heading small { margin-top: 3px; color: var(--muted); }
+.chat-avatar { width: 42px; height: 42px; border-radius: 14px; color: white; background: var(--green); display: grid; place-items: center; font-weight: 750; }
+.suggested-questions { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 12px; }
+.suggested-questions button { padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--green-dark); background: white; }
+.suggested-questions button:disabled { opacity: .5; }
+.chat-messages { max-height: 430px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: var(--surface-soft); }
+.chat-message { max-width: 82%; padding: 13px 15px; border-radius: 16px; background: white; box-shadow: 0 5px 18px rgba(23,56,47,.06); }
+.chat-message.user { align-self: flex-end; color: white; background: var(--green); }
+.chat-message > span { font-size: 11px; font-weight: 750; opacity: .7; }
+.chat-message p { margin: 6px 0 0; line-height: 1.7; }
+.chat-message small { display: block; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); line-height: 1.5; }
+.chat-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 12px; }
+.chat-form input { min-height: 50px; padding: 0 16px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: white; }
+.chat-form input:focus { outline: 2px solid var(--sage); outline-offset: 2px; }
+.chat-boundary { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .danger-button { min-height: 48px; padding: 0 18px; border: 1px solid #e4b9b5; border-radius: 14px; color: var(--danger); background: #fff8f7; font-weight: 700; }
 .checkin-panel { margin-top: 24px; }
 .checkin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
@@ -163,6 +183,7 @@ h1 { margin: 0; max-width: 740px; font-size: clamp(42px, 6vw, 76px); line-height
   .report-entry, .report-footer { align-items: flex-start; flex-direction: column; }
   .report-section ol { grid-template-columns: 1fr; }
   .agent-trace { grid-template-columns: 1fr; }
+  .chat-message { max-width: 94%; }
   .options { grid-template-columns: 1fr 1fr; }
   .panel-header { align-items: flex-start; }
 }

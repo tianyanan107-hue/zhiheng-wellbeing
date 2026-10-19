@@ -92,6 +92,7 @@ type Result = { rawScore: number; normalizedScore: number; band: string; selfHar
 type Stage = "intro" | "consent" | "questionnaire" | "result";
 type Checkin = { id: number; mood: number; sleepHours: number; sleepQuality: number; stress: number; energy: number; exercised: boolean; note: string; createdAt: string };
 type AgentRun = { report: ReturnType<typeof generateComprehensiveReport>; trace: string[]; riskLevel: "routine" | "follow_up"; passedGuardrail: boolean };
+type ChatMessage = { role: "user" | "assistant"; text: string; evidence?: string[] };
 
 function getAnonymousId() {
   const key = "zhiheng-anonymous-id";
@@ -120,6 +121,9 @@ export function ZhihengApp() {
   const [showReport, setShowReport] = useState(false);
   const [agentRun, setAgentRun] = useState<AgentRun | null>(null);
   const [reportStatus, setReportStatus] = useState("");
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ role: "assistant", text: "你可以问我关于睡眠、压力、情绪或这份报告的问题。我只根据你的现有记录回答，不进行诊断或用药指导。" }]);
 
   const questions = scale === "PHQ-9" ? phq9Questions : scale === "GAD-7" ? gad7Questions : scale === "ISI" ? isiQuestions : scale === "PSS-10" ? pss10Questions : scale === "LIFESTYLE" ? lifestyleQuestions : who5Questions;
   const options = scale === "WHO-5" ? who5Options : scale === "ISI" ? isiOptionSets[questionIndex] : scale === "PSS-10" ? pss10Options : scale === "LIFESTYLE" ? lifestyleOptions : phq9Options;
@@ -237,6 +241,19 @@ export function ZhihengApp() {
     const data = await response.json() as AgentRun & { error?: string };
     if (!response.ok) { setReportStatus(data.error ?? "报告生成失败，请稍后再试。"); return; }
     setAgentRun(data); setReportStatus("5 个节点均已完成，报告通过安全检查。");
+  }
+
+  async function askAssistant(question = chatInput) {
+    const clean = question.trim();
+    if (!clean || chatSending) return;
+    setChatMessages((messages) => [...messages, { role: "user", text: clean }]); setChatInput(""); setChatSending(true);
+    try {
+      const response = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: clean, context: reportInput }) });
+      const data = await response.json() as { answer?: string; evidence?: string[]; error?: string };
+      setChatMessages((messages) => [...messages, { role: "assistant", text: response.ok && data.answer ? data.answer : data.error ?? "助手暂时无法回答，请稍后再试。", evidence: data.evidence }]);
+    } catch {
+      setChatMessages((messages) => [...messages, { role: "assistant", text: "助手暂时无法回答，请稍后再试。" }]);
+    } finally { setChatSending(false); }
   }
 
   async function deleteAllData() {
@@ -388,6 +405,13 @@ export function ZhihengApp() {
             <div className="report-section"><span className="report-kicker">未来 7 天建议</span><ol>{displayedReport.actions.map((action, index) => <li key={index}><b>{index + 1}</b><span>{action}</span></li>)}</ol></div>
             <div className={`report-support ${displayedReport.needsProfessionalSupport ? "attention" : ""}`}><strong>{displayedReport.needsProfessionalSupport ? "建议考虑专业支持" : "什么时候需要专业支持"}</strong><p>{displayedReport.needsProfessionalSupport ? "当前部分记录达到建议进一步咨询的范围。如果困扰持续、加重或已经影响学习、工作或生活，请联系合格的专业人员。" : "如果困扰持续、明显加重，或开始影响学习、工作、睡眠和人际关系，建议联系合格的专业人员。"}</p><small>如果你正处于危险中，或有伤害自己、他人的想法，请立即联系当地紧急服务、可信任的人或专业机构。本网站不提供紧急干预。</small></div>
             <div className="report-footer"><p>建议每 7 天重新生成一次，比较自己的变化，不把单次分数当作结论。</p><button className="secondary" onClick={downloadReport}>下载文字报告</button></div>
+            <div className="assistant-chat">
+              <div className="chat-heading"><div><span className="chat-avatar">衡</span><div><strong>知衡助手</strong><small>基于你的记录 · 本地安全模式</small></div></div><span className="step-badge">对话智能体</span></div>
+              <div className="suggested-questions" aria-label="推荐问题">{["我的睡眠记录说明了什么？", "最近压力偏高，我能先做什么？", "这些分数能说明我生病了吗？"].map((question) => <button key={question} onClick={() => askAssistant(question)} disabled={chatSending}>{question}</button>)}</div>
+              <div className="chat-messages" aria-live="polite">{chatMessages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}><span>{message.role === "assistant" ? "知衡助手" : "我"}</span><p>{message.text}</p>{message.evidence && message.evidence.length > 0 && <small>回答依据：{message.evidence.join("；")}</small>}</div>)}{chatSending && <div className="chat-message assistant"><span>知衡助手</span><p>正在读取你的记录并执行安全检查……</p></div>}</div>
+              <form className="chat-form" onSubmit={(event) => { event.preventDefault(); askAssistant(); }}><label htmlFor="chat-question" className="sr-only">向知衡助手提问</label><input id="chat-question" maxLength={300} value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder="例如：我最近为什么总觉得疲惫？" /><button className="primary" disabled={!chatInput.trim() || chatSending}>{chatSending ? "分析中" : "发送"}</button></form>
+              <p className="chat-boundary">助手不能诊断疾病或指导用药。危险或自伤相关表达会优先进入安全回复。</p>
+            </div>
           </>}
         </div>
       </section>}
