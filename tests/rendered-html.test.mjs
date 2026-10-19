@@ -29,6 +29,8 @@ test("server-renders the Zhiheng product page", async () => {
   assert.match(html, /感知压力/);
   assert.match(html, /生活习惯问卷/);
   assert.match(html, /运行智能体/);
+  assert.match(html, /智能体如何工作/);
+  assert.match(html, /匿名、可导出、可删除/);
   assert.match(html, /不提供疾病诊断/);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview|Starter Project/);
 });

@@ -7,7 +7,7 @@ export const ChatInputSchema = z.object({ question: z.string().trim().min(1).max
 const ChatState = new StateSchema({
   question: z.string(),
   context: ReportInputSchema,
-  category: z.enum(["general", "sleep", "stress", "mood", "diagnosis", "crisis"]).default("general"),
+  category: z.enum(["general", "sleep", "stress", "mood", "habits", "privacy", "report", "diagnosis", "crisis"]).default("general"),
   evidence: z.array(z.string()).default(() => []),
   answer: z.string().default(""),
   trace: z.array(z.string()).default(() => []),
@@ -18,6 +18,9 @@ const classifyQuestion: typeof ChatState.Node = (state) => {
   const text = state.question.toLowerCase();
   const category = /自杀|不想活|伤害自己|结束生命|kill myself|suicide/.test(text) ? "crisis"
     : /是不是.*(抑郁|焦虑|失眠)|诊断|确诊|吃药|停药|换药|剂量/.test(text) ? "diagnosis"
+      : /隐私|数据|保存在哪里|谁能看到|删除记录/.test(text) ? "privacy"
+        : /报告|综合结果|执行轨迹|智能体/.test(text) ? "report"
+          : /习惯|运动|饮食|户外|屏幕|作息/.test(text) ? "habits"
       : /睡|失眠|早醒|疲惫|困/.test(text) ? "sleep"
         : /压力|紧张|负担|焦虑/.test(text) ? "stress"
           : /情绪|低落|开心|难过|抑郁/.test(text) ? "mood" : "general";
@@ -40,6 +43,8 @@ const gatherEvidence: typeof ChatState.Node = (state) => {
     if (c.phq9 !== undefined) evidence.push(`最近一次 PHQ-9 为 ${c.phq9}/27`);
     if (c.averageMood != null) evidence.push(`每日记录中的平均情绪为 ${c.averageMood.toFixed(1)}/5`);
   }
+  if (state.category === "habits" && c.lifestyle !== undefined) evidence.push(`最近一次生活习惯支持度为 ${c.lifestyle}/18`);
+  if (state.category === "report") evidence.push(`当前报告汇总了 ${c.assessmentCount} 类评估和 ${c.checkinCount} 次近期打卡`);
   return { evidence: evidence.slice(0, 3), trace: [...state.trace, "从个人记录中提取回答依据"] };
 };
 
@@ -51,6 +56,9 @@ const draftAnswer: typeof ChatState.Node = (state) => {
   if (state.category === "sleep") answer = `${evidenceText}这些记录说明睡眠值得继续关注，但不能据此确定原因。你可以先连续 7 天固定起床时间、记录睡眠与第二天精力；如果持续影响白天功能，建议咨询专业人员。`;
   if (state.category === "stress") answer = `${evidenceText}压力记录反映的是你的主观体验，不能单独说明疾病。可以先把任务分成“今天必须完成”和“可以推迟”，再安排一次 10 分钟的恢复活动，并继续记录变化。`;
   if (state.category === "mood") answer = `${evidenceText}这些分数帮助观察近期状态，但不能用于确诊。建议本周主动联系一位可信任的人，并维持基本作息；如果低落持续、加重或影响生活，请寻求专业支持。`;
+  if (state.category === "habits") answer = `${evidenceText}生活习惯支持度不是医学量表。建议只选择一个最容易坚持的目标连续做 7 天，例如固定起床时间、饭后散步或每学习 50 分钟休息一次。`;
+  if (state.category === "privacy") answer = "你的记录通过随机匿名标识保存，不要求姓名。你可以在仪表盘导出或删除该标识下的全部记录；当前本地安全模式不会把问答内容发送给外部大模型。公开演示时仍不要填写真实患者或研究参与者资料。";
+  if (state.category === "report") answer = `${evidenceText}综合报告先进行固定阈值安全分流，再识别重点、组织三条建议并做边界检查。执行轨迹是为了让过程可解释；报告不能替代诊断。`;
   if (state.category === "general") answer = `${evidenceText}${answer}`;
   return { answer, trace: [...state.trace, "生成基于证据的非诊断性回答"] };
 };

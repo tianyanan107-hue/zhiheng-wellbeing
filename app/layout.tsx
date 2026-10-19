@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase,
     title: "知衡｜认知与心理健康随访",
-    description: "通过幸福感、情绪、焦虑、睡眠、压力和生活习惯评估，温和地了解自己的状态趋势。",
+    description: "通过标准量表、纵向打卡和可追溯的本地智能体，温和地了解自己的状态趋势。",
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: { title: "知衡", description: "多一点了解，少一点猜测。" },
     twitter: { card: "summary" },

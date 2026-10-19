@@ -3,7 +3,7 @@ import { ZhihengApp } from "./ZhihengApp";
 
 export const metadata: Metadata = {
   title: "开始评估｜知衡",
-  description: "完成幸福感、情绪、焦虑、睡眠、压力和生活习惯评估，查看个人长期趋势。",
+  description: "完成多维状态评估，使用可追溯的本地智能体查看趋势、综合报告与行动建议。",
 };
 
 export default function Home() {

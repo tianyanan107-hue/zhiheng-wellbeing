@@ -395,6 +395,20 @@ export function ZhihengApp() {
         </div>
       </section>
 
+      <section className="panel system-panel" id="how-it-works">
+        <div className="panel-header"><div><h2>智能体如何工作</h2><p>每一步都有明确职责，规则与回答分离，方便检查和测试。</p></div><span className="step-badge">LangGraph 本地模式</span></div>
+        <div className="panel-body">
+          <ol className="workflow-map" aria-label="智能体五步工作流">
+            {[['01','读取数据','只读取本次报告需要的量表摘要和近期打卡'],['02','安全分流','用固定阈值识别需要进一步关注的情况'],['03','确定重点','从睡眠、压力、情绪和生活节律中排序'],['04','生成建议','最多给出三条低负担、可执行的七天行动'],['05','边界检查','阻止诊断、用药指导和不安全表达']].map(([number,title,copy]) => <li key={number}><span>{number}</span><strong>{title}</strong><p>{copy}</p></li>)}
+          </ol>
+          <div className="boundary-grid">
+            <article><span>系统会做</span><strong>记录、比较、解释与提醒</strong><p>帮助你看见自己的变化，并说明回答使用了哪些记录。</p></article>
+            <article><span>系统不会做</span><strong>诊断、开药或替代急救</strong><p>涉及诊断、用药或危机表达时，会切换到边界清晰的安全回复。</p></article>
+            <article><span>数据控制</span><strong>匿名、可导出、可删除</strong><p>当前不要求姓名；你可以随时导出或删除该设备匿名标识下的记录。</p></article>
+          </div>
+        </div>
+      </section>
+
       {showReport && <section className="panel report-panel" id="report" aria-live="polite">
         <div className="panel-header"><div><h2>个人状态综合报告</h2><p>由 LangGraph 编排、确定性规则决策，可追溯、非诊断。</p></div><span className="step-badge">v0.7 智能体</span></div>
         <div className="panel-body">
@@ -406,8 +420,8 @@ export function ZhihengApp() {
             <div className={`report-support ${displayedReport.needsProfessionalSupport ? "attention" : ""}`}><strong>{displayedReport.needsProfessionalSupport ? "建议考虑专业支持" : "什么时候需要专业支持"}</strong><p>{displayedReport.needsProfessionalSupport ? "当前部分记录达到建议进一步咨询的范围。如果困扰持续、加重或已经影响学习、工作或生活，请联系合格的专业人员。" : "如果困扰持续、明显加重，或开始影响学习、工作、睡眠和人际关系，建议联系合格的专业人员。"}</p><small>如果你正处于危险中，或有伤害自己、他人的想法，请立即联系当地紧急服务、可信任的人或专业机构。本网站不提供紧急干预。</small></div>
             <div className="report-footer"><p>建议每 7 天重新生成一次，比较自己的变化，不把单次分数当作结论。</p><button className="secondary" onClick={downloadReport}>下载文字报告</button></div>
             <div className="assistant-chat">
-              <div className="chat-heading"><div><span className="chat-avatar">衡</span><div><strong>知衡助手</strong><small>基于你的记录 · 本地安全模式</small></div></div><span className="step-badge">对话智能体</span></div>
-              <div className="suggested-questions" aria-label="推荐问题">{["我的睡眠记录说明了什么？", "最近压力偏高，我能先做什么？", "这些分数能说明我生病了吗？"].map((question) => <button key={question} onClick={() => askAssistant(question)} disabled={chatSending}>{question}</button>)}</div>
+              <div className="chat-heading"><div><span className="chat-avatar">衡</span><div><strong>知衡助手</strong><small>基于你的记录 · 本地安全模式</small></div></div><div className="hero-actions"><button className="secondary compact" onClick={() => setChatMessages([{ role: "assistant", text: "对话已清空。你可以继续询问睡眠、压力、情绪、生活习惯或数据隐私。" }])}>清空对话</button><span className="step-badge">对话智能体</span></div></div>
+              <div className="suggested-questions" aria-label="推荐问题">{["我的睡眠记录说明了什么？", "最近压力偏高，我能先做什么？", "生活习惯应该怎么调整？", "我的数据保存在哪里？"].map((question) => <button key={question} onClick={() => askAssistant(question)} disabled={chatSending}>{question}</button>)}</div>
               <div className="chat-messages" aria-live="polite">{chatMessages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}><span>{message.role === "assistant" ? "知衡助手" : "我"}</span><p>{message.text}</p>{message.evidence && message.evidence.length > 0 && <small>回答依据：{message.evidence.join("；")}</small>}</div>)}{chatSending && <div className="chat-message assistant"><span>知衡助手</span><p>正在读取你的记录并执行安全检查……</p></div>}</div>
               <form className="chat-form" onSubmit={(event) => { event.preventDefault(); askAssistant(); }}><label htmlFor="chat-question" className="sr-only">向知衡助手提问</label><input id="chat-question" maxLength={300} value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder="例如：我最近为什么总觉得疲惫？" /><button className="primary" disabled={!chatInput.trim() || chatSending}>{chatSending ? "分析中" : "发送"}</button></form>
               <p className="chat-boundary">助手不能诊断疾病或指导用药。危险或自伤相关表达会优先进入安全回复。</p>

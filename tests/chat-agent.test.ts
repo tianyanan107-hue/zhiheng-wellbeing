@@ -24,3 +24,16 @@ test("chat agent prioritizes crisis language", async () => {
   assert.match(result.answer, /不要独处/);
   assert.match(result.answer, /紧急服务/);
 });
+
+test("chat agent explains privacy without sending data to a model", async () => {
+  const result = await runChatAgent({ question: "我的数据保存在哪里，谁能看到？", context });
+  assert.equal(result.category, "privacy");
+  assert.match(result.answer, /匿名标识/);
+  assert.match(result.answer, /不会把问答内容发送给外部大模型/);
+});
+
+test("chat agent gives one bounded habit goal", async () => {
+  const result = await runChatAgent({ question: "生活习惯应该怎么调整？", context: { ...context, lifestyle: 9 } });
+  assert.equal(result.category, "habits");
+  assert.match(result.answer, /一个最容易坚持的目标/);
+});
