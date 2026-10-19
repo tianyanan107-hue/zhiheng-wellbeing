@@ -23,6 +23,8 @@ test("server-renders the Zhiheng product page", async () => {
   assert.match(html, /测抑郁症状 PHQ-9/);
   assert.match(html, /测焦虑症状 GAD-7/);
   assert.match(html, /每日状态打卡/);
+  assert.match(html, /状态仪表盘/);
+  assert.match(html, /导出 JSON/);
   assert.match(html, /不提供疾病诊断/);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview|Starter Project/);
 });

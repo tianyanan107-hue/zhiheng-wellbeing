@@ -88,6 +88,25 @@ h1 { margin: 0; max-width: 740px; font-size: clamp(42px, 6vw, 76px); line-height
 .notice { padding: 16px 18px; border-left: 4px solid var(--sun); background: #fff8e9; border-radius: 4px 14px 14px 4px; color: #6b5739; line-height: 1.6; }
 .notice.urgent { border-left-color: var(--danger); background: #fff0ef; color: #722c2c; }
 .history { margin-top: 24px; }
+.dashboard { margin-top: 24px; }
+.range-toggle { display: flex; padding: 4px; border-radius: 12px; background: var(--surface-soft); }
+.range-toggle button { padding: 8px 12px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; }
+.range-toggle button.active { color: white; background: var(--green); }
+.metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.metric-card { padding: 18px; border: 1px solid var(--line); border-radius: 17px; background: white; }
+.metric-card span, .metric-card small { display: block; color: var(--muted); }
+.metric-card strong { display: block; margin: 8px 0 5px; font-size: 29px; letter-spacing: -.04em; }
+.weekly-summary { margin-top: 16px; padding: 20px; border-radius: 18px; background: var(--green-dark); color: white; }
+.weekly-summary span { color: #bcd7c8; font-size: 12px; font-weight: 750; letter-spacing: .08em; }
+.weekly-summary p { margin: 8px 0 0; line-height: 1.7; }
+.spark-chart { height: 140px; display: flex; align-items: end; gap: 8px; margin-top: 16px; padding: 18px; border-radius: 18px; background: var(--surface-soft); }
+.spark-day { flex: 1; height: 100%; display: flex; align-items: end; gap: 3px; }
+.spark-day i, .spark-day b { flex: 1; min-height: 4px; border-radius: 5px 5px 2px 2px; }
+.spark-day i { background: var(--green); }
+.spark-day b { background: var(--sun); }
+.data-actions { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.data-actions p { margin: 5px 0 0; color: var(--muted); }
+.danger-button { min-height: 48px; padding: 0 18px; border: 1px solid #e4b9b5; border-radius: 14px; color: var(--danger); background: #fff8f7; font-weight: 700; }
 .checkin-panel { margin-top: 24px; }
 .checkin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
 .checkin-field { padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-soft); }
@@ -115,6 +134,8 @@ h1 { margin: 0; max-width: 740px; font-size: clamp(42px, 6vw, 76px); line-height
   .hero-card { min-height: 340px; }
   .trust-row, .consent-grid, .result-layout { grid-template-columns: 1fr; }
   .checkin-grid { grid-template-columns: 1fr; }
+  .metric-grid { grid-template-columns: repeat(2, 1fr); }
+  .data-actions { align-items: flex-start; flex-direction: column; }
   .options { grid-template-columns: 1fr 1fr; }
   .panel-header { align-items: flex-start; }
 }
@@ -126,6 +147,7 @@ h1 { margin: 0; max-width: 740px; font-size: clamp(42px, 6vw, 76px); line-height
   .hero-copy { font-size: 16px; }
   .panel-header, .panel-body { padding: 22px 18px; }
   .options { grid-template-columns: 1fr; }
+  .metric-grid { grid-template-columns: 1fr; }
   .footer { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {

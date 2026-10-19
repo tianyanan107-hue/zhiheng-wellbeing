@@ -65,6 +65,8 @@ export function ZhihengApp() {
   const [answers, setAnswers] = useState<Array<number | null>>(Array(5).fill(null));
   const [result, setResult] = useState<Result | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [histories, setHistories] = useState<Record<Scale, HistoryItem[]>>({ "WHO-5": [], "PHQ-9": [], "GAD-7": [] });
+  const [dashboardDays, setDashboardDays] = useState<7 | 30>(7);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [checkins, setCheckins] = useState<Checkin[]>([]);
@@ -78,7 +80,12 @@ export function ZhihengApp() {
     const response = await fetch(`/api/assessments?anonymousId=${encodeURIComponent(getAnonymousId())}&scale=${activeScale}`);
     if (!response.ok) return;
     const data = (await response.json()) as { history: HistoryItem[] };
-    setHistory(data.history);
+    if (activeScale === scale) setHistory(data.history);
+    setHistories((current) => ({ ...current, [activeScale]: data.history }));
+  }
+
+  async function loadAllHistories() {
+    await Promise.all((["WHO-5", "PHQ-9", "GAD-7"] as Scale[]).map((item) => loadHistory(item)));
   }
 
   async function loadCheckins() {
@@ -87,12 +94,28 @@ export function ZhihengApp() {
   }
 
   useEffect(() => { loadHistory(scale).catch(() => undefined); }, [scale]);
-  useEffect(() => { loadCheckins().catch(() => undefined); }, []);
+  useEffect(() => { loadAllHistories().catch(() => undefined); loadCheckins().catch(() => undefined); }, []);
   const latestDisplay = useMemo(() => {
     const latest = history.at(-1);
     return latest ? (scale === "WHO-5" ? latest.normalizedScore : latest.rawScore) : "—";
   }, [history, scale]);
   const currentAnswer = answers[questionIndex];
+  const recentCheckins = useMemo(() => {
+    const cutoff = Date.now() - dashboardDays * 86400000;
+    return checkins.filter((item) => new Date(item.createdAt.replace(" ", "T") + "Z").getTime() >= cutoff);
+  }, [checkins, dashboardDays]);
+  const averages = useMemo(() => {
+    const avg = (key: "mood" | "sleepHours" | "stress" | "energy") => recentCheckins.length ? recentCheckins.reduce((sum, item) => sum + item[key], 0) / recentCheckins.length : null;
+    return { mood: avg("mood"), sleep: avg("sleepHours"), stress: avg("stress"), energy: avg("energy") };
+  }, [recentCheckins]);
+  const weeklySummary = useMemo(() => {
+    if (recentCheckins.length < 2) return "记录满 2 天后，这里会生成基于数据的状态总结。";
+    const parts = [`最近 ${dashboardDays} 天记录了 ${recentCheckins.length} 次，平均睡眠 ${averages.sleep?.toFixed(1)} 小时`];
+    if ((averages.stress ?? 0) >= 4) parts.push("平均压力处于较高水平，建议优先安排休息并继续观察");
+    if ((averages.sleep ?? 8) < 6) parts.push("平均睡眠不足 6 小时，可关注睡眠与第二天精力的变化");
+    if ((averages.mood ?? 3) >= 4) parts.push("整体情绪记录较积极");
+    return `${parts.join("；")}。这些只是记录现象，不代表原因或诊断。`;
+  }, [recentCheckins, dashboardDays, averages]);
 
   function goToAssessment(next: Stage) {
     setStage(next);
@@ -112,6 +135,27 @@ export function ZhihengApp() {
     const data = await response.json() as { error?: string };
     if (!response.ok) return setCheckinMessage(data.error ?? "保存失败，请稍后再试。");
     setCheckinMessage("今天的状态已匿名保存。"); setCheckin((current) => ({ ...current, note: "" })); await loadCheckins();
+  }
+
+  async function exportData() {
+    const id = encodeURIComponent(getAnonymousId());
+    const [who5, phq9, gad7, daily] = await Promise.all([
+      fetch(`/api/assessments?anonymousId=${id}&scale=WHO-5`).then((response) => response.json()),
+      fetch(`/api/assessments?anonymousId=${id}&scale=PHQ-9`).then((response) => response.json()),
+      fetch(`/api/assessments?anonymousId=${id}&scale=GAD-7`).then((response) => response.json()),
+      fetch(`/api/checkins?anonymousId=${id}`).then((response) => response.json()),
+    ]) as Array<{ history?: HistoryItem[]; checkins?: Checkin[] }>;
+    const payload = { exportedAt: new Date().toISOString(), assessments: { "WHO-5": who5.history ?? [], "PHQ-9": phq9.history ?? [], "GAD-7": gad7.history ?? [] }, dailyCheckins: daily.checkins ?? [] };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `zhiheng-data-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); URL.revokeObjectURL(url);
+  }
+
+  async function deleteAllData() {
+    if (!window.confirm("确定删除此设备匿名标识下的全部量表和打卡记录吗？此操作无法撤销。")) return;
+    const id = encodeURIComponent(getAnonymousId());
+    const responses = await Promise.all([fetch(`/api/assessments?anonymousId=${id}`, { method: "DELETE" }), fetch(`/api/checkins?anonymousId=${id}`, { method: "DELETE" })]);
+    if (responses.some((response) => !response.ok)) return setCheckinMessage("删除失败，请稍后再试。");
+    setHistory([]); setHistories({ "WHO-5": [], "PHQ-9": [], "GAD-7": [] }); setCheckins([]); setCheckinMessage("此设备对应的记录已全部删除。");
   }
 
   function chooseAnswer(score: number) {
@@ -218,6 +262,25 @@ export function ZhihengApp() {
           </div></div>
         </>}
       </section>}
+
+      <section className="panel dashboard" id="dashboard">
+        <div className="panel-header"><div><h2>状态仪表盘</h2><p>把量表和每日记录放在一起看，关注自己的变化，而不是和别人比较。</p></div><div className="range-toggle"><button className={dashboardDays === 7 ? "active" : ""} onClick={() => setDashboardDays(7)}>7 天</button><button className={dashboardDays === 30 ? "active" : ""} onClick={() => setDashboardDays(30)}>30 天</button></div></div>
+        <div className="panel-body">
+          <div className="metric-grid">
+            <div className="metric-card"><span>WHO-5</span><strong>{histories["WHO-5"].at(-1)?.normalizedScore ?? "—"}</strong><small>幸福感 / 100</small></div>
+            <div className="metric-card"><span>PHQ-9</span><strong>{histories["PHQ-9"].at(-1)?.rawScore ?? "—"}</strong><small>症状频率 / 27</small></div>
+            <div className="metric-card"><span>GAD-7</span><strong>{histories["GAD-7"].at(-1)?.rawScore ?? "—"}</strong><small>症状频率 / 21</small></div>
+            <div className="metric-card"><span>平均情绪</span><strong>{averages.mood?.toFixed(1) ?? "—"}</strong><small>{recentCheckins.length} 次记录</small></div>
+            <div className="metric-card"><span>平均睡眠</span><strong>{averages.sleep?.toFixed(1) ?? "—"}</strong><small>小时 / 晚</small></div>
+            <div className="metric-card"><span>压力 / 精力</span><strong>{averages.stress?.toFixed(1) ?? "—"} / {averages.energy?.toFixed(1) ?? "—"}</strong><small>满分均为 5</small></div>
+          </div>
+          <div className="weekly-summary"><span>规则总结</span><p>{weeklySummary}</p></div>
+          {recentCheckins.length > 1 && <div className="spark-chart" aria-label={`${dashboardDays}天情绪与压力趋势`}>
+            {recentCheckins.map((item) => <div className="spark-day" key={item.id} title={`情绪 ${item.mood}，压力 ${item.stress}`}><i style={{ height: `${item.mood * 18}%` }} /><b style={{ height: `${item.stress * 18}%` }} /></div>)}
+          </div>}
+          <div className="data-actions"><div><strong>我的数据</strong><p>导出或删除此浏览器匿名标识对应的记录。</p></div><div className="hero-actions"><button className="secondary" onClick={() => exportData().catch(() => setCheckinMessage("导出失败，请稍后再试。"))}>导出 JSON</button><button className="danger-button" onClick={() => deleteAllData().catch(() => setCheckinMessage("删除失败，请稍后再试。"))}>删除全部记录</button></div></div>
+        </div>
+      </section>
 
       <section className="panel history" id="history">
         <div className="panel-header"><div><h2>我的{scale === "WHO-5" ? "幸福感" : "症状"}趋势</h2><p>仅保存在匿名标识下，展示最近 12 次结果。点击上方量表按钮可切换。</p></div><span className="step-badge">{scale}</span></div>

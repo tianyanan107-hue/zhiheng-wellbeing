@@ -62,3 +62,11 @@ export async function POST(request: Request) {
     return Response.json({ error: message }, { status: 400 });
   }
 }
+
+export async function DELETE(request: Request) {
+  const anonymousId = new URL(request.url).searchParams.get("anonymousId") ?? "";
+  if (!validAnonymousId(anonymousId)) return Response.json({ error: "匿名标识无效。" }, { status: 400 });
+  await ensureDatabase();
+  await getDb().delete(assessmentResults).where(eq(assessmentResults.anonymousId, anonymousId));
+  return Response.json({ deleted: true });
+}

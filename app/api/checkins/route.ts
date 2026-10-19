@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { ensureDatabase, getDb } from "../../../db";
 import { dailyCheckins } from "../../../db/schema";
 
@@ -13,11 +13,19 @@ export async function GET(request: Request) {
     await ensureDatabase();
     const checkins = await getDb().select().from(dailyCheckins)
       .where(eq(dailyCheckins.anonymousId, anonymousId))
-      .orderBy(asc(dailyCheckins.createdAt), asc(dailyCheckins.id)).limit(30);
-    return Response.json({ checkins });
+      .orderBy(desc(dailyCheckins.createdAt), desc(dailyCheckins.id)).limit(30);
+    return Response.json({ checkins: checkins.reverse() });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "读取打卡失败。" }, { status: 500 });
   }
+}
+
+export async function DELETE(request: Request) {
+  const anonymousId = new URL(request.url).searchParams.get("anonymousId") ?? "";
+  if (!validAnonymousId(anonymousId)) return Response.json({ error: "匿名标识无效。" }, { status: 400 });
+  await ensureDatabase();
+  await getDb().delete(dailyCheckins).where(eq(dailyCheckins.anonymousId, anonymousId));
+  return Response.json({ deleted: true });
 }
 
 export async function POST(request: Request) {
