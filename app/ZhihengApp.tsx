@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { generateComprehensiveReport } from "../lib/report";
 
 const who5Questions = [
   "我感到心情愉快、精神状态良好",
@@ -115,6 +116,7 @@ export function ZhihengApp() {
   const [checkins, setCheckins] = useState<Checkin[]>([]);
   const [checkin, setCheckin] = useState({ mood: 3, sleepHours: 7, sleepQuality: 3, stress: 3, energy: 3, exercised: false, note: "" });
   const [checkinMessage, setCheckinMessage] = useState("");
+  const [showReport, setShowReport] = useState(false);
 
   const questions = scale === "PHQ-9" ? phq9Questions : scale === "GAD-7" ? gad7Questions : scale === "ISI" ? isiQuestions : scale === "PSS-10" ? pss10Questions : scale === "LIFESTYLE" ? lifestyleQuestions : who5Questions;
   const options = scale === "WHO-5" ? who5Options : scale === "ISI" ? isiOptionSets[questionIndex] : scale === "PSS-10" ? pss10Options : scale === "LIFESTYLE" ? lifestyleOptions : phq9Options;
@@ -159,6 +161,11 @@ export function ZhihengApp() {
     if ((averages.mood ?? 3) >= 4) parts.push("整体情绪记录较积极");
     return `${parts.join("；")}。这些只是记录现象，不代表原因或诊断。`;
   }, [recentCheckins, dashboardDays, averages]);
+  const comprehensiveReport = useMemo(() => {
+    const latest = (name: Scale) => histories[name].at(-1)?.rawScore;
+    const assessmentCount = Object.values(histories).filter((items) => items.length > 0).length;
+    return generateComprehensiveReport({ assessmentCount, dashboardDays, checkinCount: recentCheckins.length, who5: histories["WHO-5"].at(-1)?.normalizedScore, phq9: latest("PHQ-9"), gad7: latest("GAD-7"), isi: latest("ISI"), pss10: latest("PSS-10"), lifestyle: latest("LIFESTYLE"), averageSleep: averages.sleep, averageStress: averages.stress, averageMood: averages.mood });
+  }, [histories, recentCheckins, dashboardDays, averages]);
 
   function goToAssessment(next: Stage) {
     setStage(next);
@@ -195,6 +202,27 @@ export function ZhihengApp() {
     const payload = { exportedAt: new Date().toISOString(), assessments: { "WHO-5": who5.history ?? [], "PHQ-9": phq9.history ?? [], "GAD-7": gad7.history ?? [], ISI: isi.history ?? [], "PSS-10": pss10.history ?? [], LIFESTYLE: lifestyle.history ?? [] }, dailyCheckins: daily.checkins ?? [] };
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = `zhiheng-data-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); URL.revokeObjectURL(url);
+  }
+
+  function downloadReport() {
+    if (!comprehensiveReport.ready) return;
+    const lines = [
+      "知衡｜个人状态综合报告",
+      `生成时间：${new Date().toLocaleString("zh-CN")}`,
+      "",
+      comprehensiveReport.headline,
+      comprehensiveReport.overview,
+      "",
+      "本周建议：",
+      ...comprehensiveReport.actions.map((action, index) => `${index + 1}. ${action}`),
+      "",
+      comprehensiveReport.needsProfessionalSupport ? "专业支持提示：当前部分记录达到建议进一步咨询的范围。如果困扰持续、加重或影响生活，请联系合格的专业人员。" : "专业支持提示：如困扰持续、加重或影响学习、工作和生活，仍建议联系合格的专业人员。",
+      "",
+      "本报告用于自我观察和健康教育，不构成诊断、治疗建议或紧急服务。",
+    ];
+    const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = `zhiheng-report-${new Date().toISOString().slice(0, 10)}.txt`; anchor.click(); URL.revokeObjectURL(url);
   }
 
   async function deleteAllData() {
@@ -331,9 +359,22 @@ export function ZhihengApp() {
           {recentCheckins.length > 1 && <div className="spark-chart" aria-label={`${dashboardDays}天情绪与压力趋势`}>
             {recentCheckins.map((item) => <div className="spark-day" key={item.id} title={`情绪 ${item.mood}，压力 ${item.stress}`}><i style={{ height: `${item.mood * 18}%` }} /><b style={{ height: `${item.stress * 18}%` }} /></div>)}
           </div>}
+          <div className="report-entry"><div><strong>生成综合报告</strong><p>汇总量表与每日记录，得到三个可执行的小建议。所有判断均来自固定规则。</p></div><button className="primary" onClick={() => { setShowReport(true); window.setTimeout(() => document.getElementById("report")?.scrollIntoView({ behavior: "smooth" }), 30); }}>生成我的报告</button></div>
           <div className="data-actions"><div><strong>我的数据</strong><p>导出或删除此浏览器匿名标识对应的记录。</p></div><div className="hero-actions"><button className="secondary" onClick={() => exportData().catch(() => setCheckinMessage("导出失败，请稍后再试。"))}>导出 JSON</button><button className="danger-button" onClick={() => deleteAllData().catch(() => setCheckinMessage("删除失败，请稍后再试。"))}>删除全部记录</button></div></div>
         </div>
       </section>
+
+      {showReport && <section className="panel report-panel" id="report" aria-live="polite">
+        <div className="panel-header"><div><h2>个人状态综合报告</h2><p>由确定性规则生成，可追溯、非诊断，不使用大模型判断风险。</p></div><span className="step-badge">v0.6 规则报告</span></div>
+        <div className="panel-body">
+          {!comprehensiveReport.ready ? <div className="empty-history"><strong>目前还没有足够的数据</strong><p>请先完成任意一项评估或保存一次每日状态，再回来生成报告。</p></div> : <>
+            <div className="report-hero"><span>本次概览</span><h3>{comprehensiveReport.headline}</h3><p>{comprehensiveReport.overview}</p></div>
+            <div className="report-section"><span className="report-kicker">未来 7 天建议</span><ol>{comprehensiveReport.actions.map((action, index) => <li key={index}><b>{index + 1}</b><span>{action}</span></li>)}</ol></div>
+            <div className={`report-support ${comprehensiveReport.needsProfessionalSupport ? "attention" : ""}`}><strong>{comprehensiveReport.needsProfessionalSupport ? "建议考虑专业支持" : "什么时候需要专业支持"}</strong><p>{comprehensiveReport.needsProfessionalSupport ? "当前部分记录达到建议进一步咨询的范围。如果困扰持续、加重或已经影响学习、工作或生活，请联系合格的专业人员。" : "如果困扰持续、明显加重，或开始影响学习、工作、睡眠和人际关系，建议联系合格的专业人员。"}</p><small>如果你正处于危险中，或有伤害自己、他人的想法，请立即联系当地紧急服务、可信任的人或专业机构。本网站不提供紧急干预。</small></div>
+            <div className="report-footer"><p>建议每 7 天重新生成一次，比较自己的变化，不把单次分数当作结论。</p><button className="secondary" onClick={downloadReport}>下载文字报告</button></div>
+          </>}
+        </div>
+      </section>}
 
       <section className="panel history" id="history">
         <div className="panel-header"><div><h2>我的{scale === "WHO-5" ? "幸福感" : "症状"}趋势</h2><p>仅保存在匿名标识下，展示最近 12 次结果。点击上方量表按钮可切换。</p></div><span className="step-badge">{scale}</span></div>

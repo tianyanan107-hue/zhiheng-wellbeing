@@ -28,6 +28,7 @@ test("server-renders the Zhiheng product page", async () => {
   assert.match(html, /睡眠困扰 ISI/);
   assert.match(html, /感知压力/);
   assert.match(html, /生活习惯问卷/);
+  assert.match(html, /生成我的报告/);
   assert.match(html, /不提供疾病诊断/);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview|Starter Project/);
 });
