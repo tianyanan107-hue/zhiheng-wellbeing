@@ -41,7 +41,50 @@ const gad7Questions = [
   "感到似乎将有可怕的事情发生而害怕",
 ];
 
-type Scale = "WHO-5" | "PHQ-9" | "GAD-7";
+const isiQuestions = [
+  "过去两周，你入睡困难的严重程度如何？",
+  "过去两周，你维持睡眠困难的严重程度如何？",
+  "过去两周，你过早醒来的严重程度如何？",
+  "你对目前睡眠模式的满意程度如何？",
+  "你认为睡眠问题在多大程度上影响了日常功能？",
+  "你认为他人能在多大程度上察觉到你的睡眠问题？",
+  "你对目前睡眠问题的担忧或痛苦程度如何？",
+];
+const isiOptionSets = [
+  ["无", "轻度", "中度", "重度", "非常严重"],
+  ["无", "轻度", "中度", "重度", "非常严重"],
+  ["无", "轻度", "中度", "重度", "非常严重"],
+  ["非常满意", "满意", "一般", "不满意", "非常不满意"],
+  ["完全不影响", "轻微影响", "有些影响", "明显影响", "严重影响"],
+  ["完全不会", "轻微", "有些", "很明显", "非常明显"],
+  ["完全不担忧", "轻微", "有些", "明显", "非常担忧"],
+].map((labels) => labels.map((label, score) => ({ score, label })));
+
+const pss10Questions = [
+  "因为发生意外的事情而感到心烦意乱？",
+  "感到无法控制生活中重要的事情？",
+  "感到紧张和有压力？",
+  "有信心处理自己的个人问题？",
+  "感到事情正在按自己的想法发展？",
+  "发现自己无法应付所有必须做的事情？",
+  "能够控制生活中令人恼火的事情？",
+  "感到自己能掌控事情？",
+  "因为无法控制的事情而生气？",
+  "感到困难堆积得太多，无法克服？",
+];
+const pss10Options = ["从不", "几乎从不", "有时", "经常", "总是"].map((label, score) => ({ score, label }));
+
+const lifestyleQuestions = [
+  "我能保持相对规律的入睡和起床时间",
+  "我每次会进行至少 30 分钟的中等强度活动",
+  "我会接触户外日光或在户外活动",
+  "我会规律吃饭，并尽量保证饮食多样",
+  "我会与家人、朋友或同伴保持有质量的联系",
+  "长时间学习或使用屏幕后，我会主动休息",
+];
+const lifestyleOptions = ["几乎没有", "每周 1—2 天", "每周 3—4 天", "每周 5 天以上"].map((label, score) => ({ score, label }));
+
+type Scale = "WHO-5" | "PHQ-9" | "GAD-7" | "ISI" | "PSS-10" | "LIFESTYLE";
 
 type HistoryItem = { id: number; rawScore: number; normalizedScore: number; createdAt: string };
 type Result = { rawScore: number; normalizedScore: number; band: string; selfHarmRisk?: boolean };
@@ -65,7 +108,7 @@ export function ZhihengApp() {
   const [answers, setAnswers] = useState<Array<number | null>>(Array(5).fill(null));
   const [result, setResult] = useState<Result | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [histories, setHistories] = useState<Record<Scale, HistoryItem[]>>({ "WHO-5": [], "PHQ-9": [], "GAD-7": [] });
+  const [histories, setHistories] = useState<Record<Scale, HistoryItem[]>>({ "WHO-5": [], "PHQ-9": [], "GAD-7": [], ISI: [], "PSS-10": [], LIFESTYLE: [] });
   const [dashboardDays, setDashboardDays] = useState<7 | 30>(7);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -73,8 +116,8 @@ export function ZhihengApp() {
   const [checkin, setCheckin] = useState({ mood: 3, sleepHours: 7, sleepQuality: 3, stress: 3, energy: 3, exercised: false, note: "" });
   const [checkinMessage, setCheckinMessage] = useState("");
 
-  const questions = scale === "PHQ-9" ? phq9Questions : scale === "GAD-7" ? gad7Questions : who5Questions;
-  const options = scale === "WHO-5" ? who5Options : phq9Options;
+  const questions = scale === "PHQ-9" ? phq9Questions : scale === "GAD-7" ? gad7Questions : scale === "ISI" ? isiQuestions : scale === "PSS-10" ? pss10Questions : scale === "LIFESTYLE" ? lifestyleQuestions : who5Questions;
+  const options = scale === "WHO-5" ? who5Options : scale === "ISI" ? isiOptionSets[questionIndex] : scale === "PSS-10" ? pss10Options : scale === "LIFESTYLE" ? lifestyleOptions : phq9Options;
 
   async function loadHistory(activeScale: Scale = scale) {
     const response = await fetch(`/api/assessments?anonymousId=${encodeURIComponent(getAnonymousId())}&scale=${activeScale}`);
@@ -85,7 +128,7 @@ export function ZhihengApp() {
   }
 
   async function loadAllHistories() {
-    await Promise.all((["WHO-5", "PHQ-9", "GAD-7"] as Scale[]).map((item) => loadHistory(item)));
+    await Promise.all((["WHO-5", "PHQ-9", "GAD-7", "ISI", "PSS-10", "LIFESTYLE"] as Scale[]).map((item) => loadHistory(item)));
   }
 
   async function loadCheckins() {
@@ -124,7 +167,8 @@ export function ZhihengApp() {
 
   function selectScale(nextScale: Scale) {
     setScale(nextScale);
-    setAnswers(Array(nextScale === "PHQ-9" ? 9 : nextScale === "GAD-7" ? 7 : 5).fill(null));
+    const counts: Record<Scale, number> = { "WHO-5": 5, "PHQ-9": 9, "GAD-7": 7, ISI: 7, "PSS-10": 10, LIFESTYLE: 6 };
+    setAnswers(Array(counts[nextScale]).fill(null));
     setQuestionIndex(0); setResult(null); setError(""); setConsented(false);
     goToAssessment("consent");
   }
@@ -139,13 +183,16 @@ export function ZhihengApp() {
 
   async function exportData() {
     const id = encodeURIComponent(getAnonymousId());
-    const [who5, phq9, gad7, daily] = await Promise.all([
+    const [who5, phq9, gad7, isi, pss10, lifestyle, daily] = await Promise.all([
       fetch(`/api/assessments?anonymousId=${id}&scale=WHO-5`).then((response) => response.json()),
       fetch(`/api/assessments?anonymousId=${id}&scale=PHQ-9`).then((response) => response.json()),
       fetch(`/api/assessments?anonymousId=${id}&scale=GAD-7`).then((response) => response.json()),
+      fetch(`/api/assessments?anonymousId=${id}&scale=ISI`).then((response) => response.json()),
+      fetch(`/api/assessments?anonymousId=${id}&scale=PSS-10`).then((response) => response.json()),
+      fetch(`/api/assessments?anonymousId=${id}&scale=LIFESTYLE`).then((response) => response.json()),
       fetch(`/api/checkins?anonymousId=${id}`).then((response) => response.json()),
     ]) as Array<{ history?: HistoryItem[]; checkins?: Checkin[] }>;
-    const payload = { exportedAt: new Date().toISOString(), assessments: { "WHO-5": who5.history ?? [], "PHQ-9": phq9.history ?? [], "GAD-7": gad7.history ?? [] }, dailyCheckins: daily.checkins ?? [] };
+    const payload = { exportedAt: new Date().toISOString(), assessments: { "WHO-5": who5.history ?? [], "PHQ-9": phq9.history ?? [], "GAD-7": gad7.history ?? [], ISI: isi.history ?? [], "PSS-10": pss10.history ?? [], LIFESTYLE: lifestyle.history ?? [] }, dailyCheckins: daily.checkins ?? [] };
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = `zhiheng-data-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); URL.revokeObjectURL(url);
   }
@@ -155,7 +202,7 @@ export function ZhihengApp() {
     const id = encodeURIComponent(getAnonymousId());
     const responses = await Promise.all([fetch(`/api/assessments?anonymousId=${id}`, { method: "DELETE" }), fetch(`/api/checkins?anonymousId=${id}`, { method: "DELETE" })]);
     if (responses.some((response) => !response.ok)) return setCheckinMessage("删除失败，请稍后再试。");
-    setHistory([]); setHistories({ "WHO-5": [], "PHQ-9": [], "GAD-7": [] }); setCheckins([]); setCheckinMessage("此设备对应的记录已全部删除。");
+    setHistory([]); setHistories({ "WHO-5": [], "PHQ-9": [], "GAD-7": [], ISI: [], "PSS-10": [], LIFESTYLE: [] }); setCheckins([]); setCheckinMessage("此设备对应的记录已全部删除。");
   }
 
   function chooseAnswer(score: number) {
@@ -199,12 +246,15 @@ export function ZhihengApp() {
             <button className="primary" onClick={() => selectScale("WHO-5")}>测幸福感 WHO-5</button>
             <button className="secondary" onClick={() => selectScale("PHQ-9")}>测抑郁症状 PHQ-9</button>
             <button className="secondary" onClick={() => selectScale("GAD-7")}>测焦虑症状 GAD-7</button>
+            <button className="secondary" onClick={() => selectScale("ISI")}>测睡眠困扰 ISI</button>
+            <button className="secondary" onClick={() => selectScale("PSS-10")}>测感知压力 PSS-10</button>
+            <button className="secondary" onClick={() => selectScale("LIFESTYLE")}>生活习惯问卷</button>
             <button className="secondary" onClick={() => document.getElementById("history")?.scrollIntoView({ behavior: "smooth" })}>查看我的趋势</button>
           </div>
         </div>
         <aside className="hero-card" aria-label="最近一次评估概览">
           <div className="status-label">最近一次 {scale} 得分</div>
-          <div className="status-score">{latestDisplay}<span className="status-unit"> / {scale === "PHQ-9" ? 27 : scale === "GAD-7" ? 21 : 100}</span></div>
+          <div className="status-score">{latestDisplay}<span className="status-unit"> / {scale === "PHQ-9" ? 27 : scale === "GAD-7" ? 21 : scale === "ISI" ? 28 : scale === "PSS-10" ? 40 : scale === "LIFESTYLE" ? 18 : 100}</span></div>
           <p className="status-message">规律记录比单次分数更重要。完成多次评估后，你可以在这里看到属于自己的变化。</p>
           <div className="mini-bars" aria-hidden="true">{[42,53,48,65,59,72].map((height, index) => <span key={index} style={{ height: `${height}%` }} />)}</div>
         </aside>
@@ -221,7 +271,7 @@ export function ZhihengApp() {
           <div className="panel-header"><div><h2>开始前，请先了解</h2><p>你的自主选择和安全，比完成一次评估更重要。</p></div><span className="step-badge">知情说明</span></div>
           <div className="panel-body">
             <div className="consent-grid">
-              <div className="consent-card"><strong>这项评估能做什么</strong><p>{scale === "PHQ-9" ? "PHQ-9用于筛查过去两周的抑郁相关症状，帮助识别是否值得进一步咨询。" : scale === "GAD-7" ? "GAD-7用于筛查过去两周的焦虑相关症状，帮助你观察症状频率和变化。" : "WHO-5用于了解过去两周的主观心理幸福感，帮助你观察个人变化。"}</p></div>
+              <div className="consent-card"><strong>这项评估能做什么</strong><p>{scale === "PHQ-9" ? "PHQ-9用于筛查过去两周的抑郁相关症状，帮助识别是否值得进一步咨询。" : scale === "GAD-7" ? "GAD-7用于筛查过去两周的焦虑相关症状，帮助你观察症状频率和变化。" : scale === "ISI" ? "ISI用于了解过去两周的失眠症状、睡眠满意度及其日间影响。" : scale === "PSS-10" ? "PSS-10用于了解过去一个月中，你对生活压力的主观感受。" : scale === "LIFESTYLE" ? "这份非诊断性问卷记录近一周中支持身心状态的日常习惯。" : "WHO-5用于了解过去两周的主观心理幸福感，帮助你观察个人变化。"}</p></div>
               <div className="consent-card"><strong>它不能做什么</strong><p>结果不能诊断抑郁症或其他疾病，也不能替代医生、心理咨询师的判断。</p></div>
             </div>
             <label className="consent-check"><input type="checkbox" checked={consented} onChange={(event) => setConsented(event.target.checked)} /><span>我已阅读并理解以上说明，自愿进行本次匿名自我评估。</span></label>
@@ -230,7 +280,7 @@ export function ZhihengApp() {
         </>}
 
         {stage === "questionnaire" && <>
-          <div className="panel-header"><div><h2>{scale === "PHQ-9" ? "PHQ-9 抑郁症状筛查" : scale === "GAD-7" ? "GAD-7 焦虑症状筛查" : "WHO-5 心理幸福感评估"}</h2><p>请根据过去两周的真实感受作答。</p></div><span className="step-badge">约 {scale === "WHO-5" ? 2 : 3} 分钟</span></div>
+          <div className="panel-header"><div><h2>{scale === "PHQ-9" ? "PHQ-9 抑郁症状筛查" : scale === "GAD-7" ? "GAD-7 焦虑症状筛查" : scale === "ISI" ? "ISI 失眠严重程度评估" : scale === "PSS-10" ? "PSS-10 感知压力评估" : scale === "LIFESTYLE" ? "生活习惯问卷" : "WHO-5 心理幸福感评估"}</h2><p>{scale === "PSS-10" ? "请根据过去一个月的真实感受作答。" : scale === "LIFESTYLE" ? "请根据过去一周的实际情况作答。" : "请根据过去两周的真实感受作答。"}</p></div><span className="step-badge">约 {questions.length <= 6 ? 2 : 3} 分钟</span></div>
           <div className="panel-body">
             <div className="progress-track"><div className="progress-fill" style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }} /></div>
             <div className="question-number">问题 {questionIndex + 1} / {questions.length}</div>
@@ -251,10 +301,10 @@ export function ZhihengApp() {
         {stage === "result" && result && <>
           <div className="panel-header"><div><h2>本次评估结果</h2><p>这是一次状态记录，不是一份诊断结论。</p></div><span className="step-badge">已匿名保存</span></div>
           <div className="panel-body"><div className="result-layout">
-            <div className="score-ring" style={{ "--score-angle": `${result.normalizedScore * 3.6}deg` } as React.CSSProperties}><div className="score-value">{scale === "WHO-5" ? result.normalizedScore : result.rawScore}<small>{scale === "PHQ-9" ? "满分 27" : scale === "GAD-7" ? "满分 21" : "满分 100"}</small></div></div>
+            <div className="score-ring" style={{ "--score-angle": `${result.normalizedScore * 3.6}deg` } as React.CSSProperties}><div className="score-value">{scale === "WHO-5" ? result.normalizedScore : result.rawScore}<small>{scale === "PHQ-9" ? "满分 27" : scale === "GAD-7" ? "满分 21" : scale === "ISI" ? "满分 28" : scale === "PSS-10" ? "满分 40" : scale === "LIFESTYLE" ? "支持度 / 18" : "满分 100"}</small></div></div>
             <div className="result-copy">
-              <h3>{scale !== "WHO-5" ? ({ minimal: "目前症状很少", mild: "存在轻度症状", moderate: "建议进一步关注", moderately_severe: "建议尽快咨询专业人员", severe: "建议尽快寻求专业帮助" }[result.band] ?? "关注自己的状态") : result.band === "positive" ? "继续关注自己的状态" : "值得给自己多一些关注"}</h3>
-              <p>{scale !== "WHO-5" ? `${scale}是筛查工具，分数反映过去两周症状出现的频率，不能单独用于诊断。如果症状持续、加重或影响生活，请向合格的专业人员咨询。` : result.band === "positive" ? "本次结果未落入WHO-5建议进一步评估的范围。单次结果会受到近期事件影响，持续记录更有参考价值。" : "本次得分低于WHO-5建议进一步评估的参考范围。这不代表你患有某种疾病；如果这种状态持续、影响生活，建议向合格的专业人员进一步咨询。"}</p>
+              <h3>{({ positive: "继续关注自己的状态", negative: "值得给自己多一些关注", minimal: "目前症状很少", mild: "存在轻度症状", moderate: "建议进一步关注", moderately_severe: "建议尽快咨询专业人员", severe: "建议尽快寻求专业帮助", none: "目前未见明显失眠困扰", subthreshold: "存在轻度睡眠困扰", low: "目前感知压力较低", high: "目前感知压力较高", needs_attention: "可以从一个小习惯开始", developing: "已有一些支持健康的习惯", supportive: "当前习惯对状态较有支持" }[result.band] ?? "关注自己的状态")}</h3>
+              <p>{scale === "WHO-5" ? (result.band === "positive" ? "本次结果未落入WHO-5建议进一步评估的范围。单次结果会受到近期事件影响，持续记录更有参考价值。" : "本次得分低于WHO-5建议进一步评估的参考范围。这不代表你患有某种疾病；如果这种状态持续、影响生活，建议向合格的专业人员进一步咨询。") : scale === "LIFESTYLE" ? "生活习惯支持度不是医学量表，也没有诊断意义。它只帮助你发现可调整的日常环节，建议每次只选择一个容易坚持的小目标。" : `${scale}是自我筛查工具，分数用于帮助观察近期状态，不能单独用于诊断。如果困扰持续、加重或影响生活，请向合格的专业人员咨询。`}</p>
               {result.selfHarmRisk && <div className="notice urgent"><strong>请优先关注你的安全。</strong><br />你对“伤害自己”的问题选择了非零答案。请现在联系可信任的人陪伴你，并尽快联系当地紧急服务或专业心理援助；不要独自承受。本网站不提供紧急干预。</div>}
               {!result.selfHarmRisk && <div className="notice">如果你正处于危险中，或有伤害自己、他人的想法，请立即联系当地紧急服务、可信任的人或专业机构。本网站不提供紧急干预。</div>}
               <div className="hero-actions" style={{ marginTop: 20 }}><button className="primary" onClick={resetAssessment}>再次评估</button><button className="secondary" onClick={() => document.getElementById("history")?.scrollIntoView({ behavior: "smooth" })}>查看趋势</button></div>
@@ -270,6 +320,9 @@ export function ZhihengApp() {
             <div className="metric-card"><span>WHO-5</span><strong>{histories["WHO-5"].at(-1)?.normalizedScore ?? "—"}</strong><small>幸福感 / 100</small></div>
             <div className="metric-card"><span>PHQ-9</span><strong>{histories["PHQ-9"].at(-1)?.rawScore ?? "—"}</strong><small>症状频率 / 27</small></div>
             <div className="metric-card"><span>GAD-7</span><strong>{histories["GAD-7"].at(-1)?.rawScore ?? "—"}</strong><small>症状频率 / 21</small></div>
+            <div className="metric-card"><span>ISI</span><strong>{histories.ISI.at(-1)?.rawScore ?? "—"}</strong><small>睡眠困扰 / 28</small></div>
+            <div className="metric-card"><span>PSS-10</span><strong>{histories["PSS-10"].at(-1)?.rawScore ?? "—"}</strong><small>感知压力 / 40</small></div>
+            <div className="metric-card"><span>生活习惯</span><strong>{histories.LIFESTYLE.at(-1)?.rawScore ?? "—"}</strong><small>支持度 / 18，非临床</small></div>
             <div className="metric-card"><span>平均情绪</span><strong>{averages.mood?.toFixed(1) ?? "—"}</strong><small>{recentCheckins.length} 次记录</small></div>
             <div className="metric-card"><span>平均睡眠</span><strong>{averages.sleep?.toFixed(1) ?? "—"}</strong><small>小时 / 晚</small></div>
             <div className="metric-card"><span>压力 / 精力</span><strong>{averages.stress?.toFixed(1) ?? "—"} / {averages.energy?.toFixed(1) ?? "—"}</strong><small>满分均为 5</small></div>
